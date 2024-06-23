@@ -19,11 +19,6 @@ spring:
   config:
     import: optional:consul:/
   cloud:
-    consul:
-      host: ${CONSUL-HOST}
-      port: ${CONSUL-PORT}
-      discovery:
-        health-check-path: /health
     gateway:
       routes:
         - id: gateway-oauth-route
