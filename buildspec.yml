@@ -5,12 +5,12 @@ phases:
     commands:
       - echo Logging into Amazon ECR started on `date`
       - aws --version
-      - echo Retrieving ECR repository URI and region from Secrets Manager...
-      - REPOSITORY_URI=$(aws secretsmanager get-secret-value --secret-id "dm-gateway-repository" --query "SecretString" --output text | jq -r .repositoryUri)
-      - AWS_REGION=$(aws secretsmanager get-secret-value --secret-id "dm-gateway-repository" --query "SecretString" --output text | jq -r .region)
-      - echo Retrieved ECR_REPOSITORY_URI: $REPOSITORY_URI
+      - echo Retrieving ECR repository URI and region from Parameter Store...
+      - ECR_REPOSITORY_URI=$(aws ssm get-parameter --name "ECR_REPOSITORY_URI" --query "Parameter.Value" --output text)
+      - AWS_REGION=$(aws ssm get-parameter --name "AWS_REGION" --query "Parameter.Value" --output text)
+      - echo Retrieved ECR_REPOSITORY_URI: $ECR_REPOSITORY_URI
       - echo Logging into ECR...
-      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
       - echo setting image tag...
       - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
 
@@ -22,19 +22,19 @@ phases:
       - echo building the Docker images...
       - docker-compose -f docker-compose.yml build
       - echo tagging the Docker images...
-      - docker tag api-gateway:latest $REPOSITORY_URI:api-gateway-latest
-      - docker tag api-gateway:latest $REPOSITORY_URI:api-gateway-$IMAGE_TAG
+      - docker tag api-gateway:latest $ECR_REPOSITORY_URI:api-gateway-latest
+      - docker tag api-gateway:latest $ECR_REPOSITORY_URI:api-gateway-$IMAGE_TAG
 
   post_build:
     commands:
       - echo pushing Docker images to Amazon ECR started on `date`
       - echo pushing to repository...
-      - docker push $REPOSITORY_URI:api-gateway-latest
-      - docker push $REPOSITORY_URI:api-gateway-$IMAGE_TAG
+      - docker push $ECR_REPOSITORY_URI:api-gateway-latest
+      - docker push $ECR_REPOSITORY_URI:api-gateway-$IMAGE_TAG
       - echo setting container name...
       - DOCKER_CONTAINER_NAME=api-gateway
       - echo writing image definitions file...
-      - printf '[{"name":"%s","imageUri":"%s"}]' $DOCKER_CONTAINER_NAME $REPOSITORY_URI:api-gateway-$IMAGE_TAG > imagedefinitions.json
+      - printf '[{"name":"%s","imageUri":"%s"}]' $DOCKER_CONTAINER_NAME $ECR_REPOSITORY_URI:api-gateway-$IMAGE_TAG > imagedefinitions.json
       - echo printing imagedefinitions.json
       - cat imagedefinitions.json
 
