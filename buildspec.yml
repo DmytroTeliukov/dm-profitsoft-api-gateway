@@ -7,7 +7,7 @@ phases:
       - aws --version
       - echo "Retrieving ECR repository URI and region from Parameter Store..."
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
-      - ECR_REPOSITORY_URI=$ECR_REPOSITORY_URI/dm-gateway-repository
+      - ECR_REPOSITORY_URI=$ECR_REPOSITORY_URI
       - AWS_REGION=$AWS_REGION
       - echo "Logging into ECR..."
       - echo "Setting image tag..."
