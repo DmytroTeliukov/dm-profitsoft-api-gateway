@@ -1,0 +1,42 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto17
+      docker: 19
+    commands:
+      - echo "Installing dependencies..."
+      - apt-get update -y
+      - apt-get install -y dos2unix
+
+  pre_build:
+    commands:
+      - echo "Logging in to Amazon ECR..."
+      - $(aws ecr get-login --no-include-email --region $AWS_REGION)
+      - echo "Setting environment variables..."
+      - export TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION}
+      - echo "Converting line endings..."
+      - dos2unix ./docker-compose.yml
+      - dos2unix ./Dockerfile
+
+  build:
+    commands:
+      - echo "Building Docker images..."
+      - docker-compose -f docker-compose.yml build
+      - echo "Tagging Docker images..."
+      - docker tag restaurant-backend-app:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/restaurant-backend-app:$TAG
+      - docker tag restaurant-postgresql-database:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/restaurant-postgresql-database:$TAG
+
+  post_build:
+    commands:
+      - echo "Pushing Docker images to ECR..."
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/restaurant-backend-app:$TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/restaurant-postgresql-database:$TAG
+      - echo "Updating ECS service..."
+      - aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --force-new-deployment --region $AWS_REGION
+
+artifacts:
+  files:
+    - '**/*'
+  discard-paths: yes
