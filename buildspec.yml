@@ -1,40 +1,42 @@
 version: 0.2
 
 phases:
-  install:
-    runtime-versions:
-      java: corretto17
-      docker: 19
-    commands:
-      - echo "Installing dependencies..."
-      - apt-get update -y
-      - apt-get install -y dos2unix
-
   pre_build:
     commands:
-      - echo "Logging in to Amazon ECR..."
-      - $(aws ecr get-login --no-include-email --region $AWS_REGION)
-      - echo "Setting environment variables..."
-      - export TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION}
-      - echo "Converting line endings..."
-      - dos2unix ./docker-compose.yml
-      - dos2unix ./Dockerfile
+      - echo Logging into Amazon ECR started on `date`
+      - aws --version
+      - echo Retrieving ECR repository URI and region from Parameter Store...
+      - REPOSITORY_URI=$(aws ssm get-parameter --name "ECR_REPOSITORY_URI" --query "Parameter.Value" --output text)
+      - AWS_REGION=$(aws ssm get-parameter --name "AWS_REGION" --query "Parameter.Value" --output text)
+      - echo Logging into ECR...
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI
+      - echo setting image tag...
+      - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
 
   build:
     commands:
-      - echo "Building Docker images..."
+      - echo building and tagging started on `date`
+      - echo running mvn clean install...
+      - mvn clean install
+      - echo building the Docker images...
       - docker-compose -f docker-compose.yml build
-      - echo "Tagging Docker images..."
-      - docker tag api-gateway:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/api-gateway:$TAG
+      - echo tagging the Docker images...
+      - docker tag api-gateway:latest $REPOSITORY_URI:api-gateway-latest
+      - docker tag api-gateway:latest $REPOSITORY_URI:api-gateway-$IMAGE_TAG
 
   post_build:
     commands:
-      - echo "Pushing Docker images to ECR..."
-      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/api-gateway:$TAG
-      - echo "Updating ECS service..."
-      - aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --force-new-deployment --region $AWS_REGION
+      - echo pushing Docker images to Amazon ECR started on `date`
+      - echo pushing to repository...
+      - docker push $REPOSITORY_URI:api-gateway-latest
+      - docker push $REPOSITORY_URI:api-gateway-$IMAGE_TAG
+      - echo setting container name...
+      - DOCKER_CONTAINER_NAME=api-gateway
+      - echo writing image definitions file...
+      - printf '[{"name":"%s","imageUri":"%s"}]' $DOCKER_CONTAINER_NAME $REPOSITORY_URI:api-gateway-$IMAGE_TAG > imagedefinitions.json
+      - echo printing imagedefinitions.json
+      - cat imagedefinitions.json
 
 artifacts:
   files:
-    - '**/*'
-  discard-paths: yes
+    - imagedefinitions.json
