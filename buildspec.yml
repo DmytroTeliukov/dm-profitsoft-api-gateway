@@ -6,11 +6,10 @@ phases:
       - echo "Logging into Amazon ECR started on $(date)"
       - aws --version
       - echo "Retrieving ECR repository URI and region from Parameter Store..."
-      - ECR_REPOSITORY_URI=$(aws ssm get-parameter --name "ECR_REPOSITORY_URI" --query "Parameter.Value" --output text)
-      - AWS_REGION=$(aws ssm get-parameter --name "AWS_REGION" --query "Parameter.Value" --output text)
-      - echo "Retrieved ECR_REPOSITORY_URI: $ECR_REPOSITORY_URI"
-      - echo "Logging into ECR..."
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
+      - ECR_REPOSITORY_URI=$ECR_REPOSITORY_URI/dm-gateway-repository
+      - AWS_REGION=$AWS_REGION
+      - echo "Logging into ECR..."
       - echo "Setting image tag..."
       - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
 
