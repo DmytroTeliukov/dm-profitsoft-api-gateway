@@ -3,19 +3,16 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - echo "Logging into Amazon ECR started on $(date)"
+      - echo Logging into Amazon ECR started on `date`
       - aws --version
-      - echo "Retrieving ECR repository URI and region from Parameter Store..."
-      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
-      - ECR_REPOSITORY_URI=$ECR_REPOSITORY_URI
-      - AWS_REGION=$AWS_REGION
-      - echo "Logging into ECR..."
-      - echo "Setting image tag..."
+      - aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 851725515475.dkr.ecr.eu-north-1.amazonaws.com
+      - ECR_REPOSITORY_URI=851725515475.dkr.ecr.eu-north-1.amazonaws.com/dm-gateway-repository
+      - echo setting image tag...
       - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
 
   build:
     commands:
-      - echo "Building and tagging started on $(date)"
+      - echo building and tagging started image on `date`
       - echo "Running mvn clean install..."
       - mvn clean install
       - echo "Building the Docker images..."
