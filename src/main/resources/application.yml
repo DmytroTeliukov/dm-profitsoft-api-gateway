@@ -16,14 +16,10 @@ oauth:
 spring:
   application:
     name: gateway
-  config:
-    import: optional:consul:/
   cloud:
     consul:
-      host: 0.0.0.0
-      port: 8500
-      discovery:
-        health-check-path: /health
+      config:
+        enabled: false
     gateway:
       routes:
         - id: gateway-oauth-route
